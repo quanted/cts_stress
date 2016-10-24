@@ -1,0 +1,167 @@
+<html>
+<head>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.5.0/socket.io.min.js" type="text/javascript"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js" type="text/javascript"></script>
+	<!-- Latest compiled and minified CSS -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+	<!-- Optional theme -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+</head>
+<body>
+
+<div class="container">
+	<div class="text-center"><h2> Stress testing CTS web sockets </h2></div>
+	<br><br>
+	<div class="row">
+		<div class="col-md-4"></div>
+		<div class="col-md-4">
+			<h3> Inputs </h3><br>
+			<div class="row">
+				<div class="col-md-6"><b>Number of users:</b></div>
+				<div class="col-md-6"><input type="number" id="num-users" class="input-block-level"></div>
+			</div>
+			<div class="row">
+				<div class="col-md-6"><b>Users per second:</b></div>
+				<div class="col-md-6"><input type="number" id="user-rate" class="input-block-level"></div>
+			</div><br>
+			<div class="row">
+				<div class="col-md-6"><b>POST:</b></div>
+				<div class="col-md-6"><textarea id="post-data" class="input-block-level" rows="4"></textarea></div>
+			</div>
+			<input type="button" value="start" id="start-test" class="btn btn-large"> &nbsp;&nbsp;
+			<input type="button" value="stop" id="stop-test" class="btn btn-large">
+		</div>
+		<div class="col-md-4"></div>
+	</div>
+	<br><br><br>
+	<div class="row">
+		<div class="col-md-4"></div>
+		<div class="col-md-4">
+			<h3> Some Stats </h3><br>
+			<div class="row">
+				<div class="col-md-6"><b>Average (ms):</b></div>
+				<div class="col-md-6"><input type="number" id="avg-lat"></div>
+			</div>
+			<div class="row">
+				<div class="col-md-6"><b>Max (ms):</b></div>
+				<div class="col-md-6"><input type="number" id="max-lat"></div>
+			</div>
+			<div class="row">
+				<div class="col-md-6"><b>Min (ms):</b></div>
+				<div class="col-md-6"><input type="number" id="min-lat"></div>
+			</div>
+		</div>
+		<div class="col-md-4"></div>
+	</div>
+</div>
+
+<script>
+
+var pchem_request = {
+	'chemical': '',
+	'props': '',
+	'calc': '',
+	'ph': '',
+
+}
+
+$(document).ready(function () {
+
+	var stop_test = false;
+	var start_time, stop_time, latency;
+	var avg_lat, min_lat, max_lat;
+	var lat_array = [];
+
+	$('#start-test').on('click', function () {
+
+		stop_test = false;
+
+		var num_users = $('#num-users').val();
+		var user_rate = $('#user-rate').val();
+
+		var delay = Math.round(1000 / user_rate);
+
+		// should connection go in loop for creating multiple connections? (todo)
+		var socket = io.connect("http://localhost:4000", {'force new connecton': true});
+
+		var i = 1;                     //  set your counter to 1
+		function loopCalls() {           //  create a loop function
+			setTimeout(function () {    //  call a 3s setTimeout when the loop is called
+				
+				start_time = Date.now();
+
+				var test_pack = {
+					'start_time': start_time,
+				}
+
+				socket.emit('say_hello', test_pack);
+
+				i++;
+				if (i < num_users && stop_test != true) {
+					loopCalls();             
+				}
+				else {
+					// compute stats:
+					computeStats();
+				}                        
+			}, delay)
+		}
+		loopCalls();
+
+		function computeStats() {
+			// min, max, and avg latency
+			var sum = 0;
+			max_lat = 0;
+			min_lat = lat_array[0];
+			for (var i = 0; i < lat_array.length; i++) {
+				var val = lat_array[i];
+				sum += val;  // for avg
+
+				// determine max:
+				if (val > max_lat) {
+					max_lat = val;
+				}
+
+				// determine min:
+				if (val < min_lat) {
+					min_lat = val;
+				}
+
+			}
+			var avg_lat = sum / lat_array.length;
+			// var max_lat = Math.max(lat_array);
+			// var min_lat = Math.min(lat_array);
+
+			$('#avg-lat').val(avg_lat.toFixed(2));
+			$('#max-lat').val(max_lat);
+			$('#min-lat').val(min_lat);
+
+		}
+
+		socket.on('message', function(data){
+			stop_time = Date.now();
+			latency = stop_time - start_time;  // diff in ms
+			if (!(typeof latency === "number")) {
+				alert("latency value " + latency + " is NaN..");
+			}
+			lat_array.push(latency);
+			console.log("latency: " + latency);
+		});
+
+		socket.on('close', function(){
+			console.log("socket closed.");
+			socket.close();
+		});
+
+	});
+
+	$('#stop-test').on('click', function () {
+		stop_test = true;
+	});
+
+});
+</script>
+
+
+</body>
+</html>
