@@ -88,20 +88,22 @@
 	</div><br><br><br>
 	
 	<div class="row">
-		<div class="col-md-2"></div>
-		<div class="col-md-4">
-			<h3> Some Stats </h3><br>
+		<div class="col-md-1"></div>
+		<div class="col-md-5">
 			<div class="row">
-				<div class="col-md-6"><b>Average (ms):</b></div>
-				<div class="col-md-6"><input type="number" id="avg-lat"></div>
+				<!-- <div class="col-md-6"><b>Average (ms):</b></div> -->
+				<!-- <div class="col-md-6"><input type="number" id="avg-lat"></div> -->
+				<div id="avg-lat" class="col-md-6 stats"></div>
 			</div>
 			<div class="row">
-				<div class="col-md-6"><b>Max (ms):</b></div>
-				<div class="col-md-6"><input type="number" id="max-lat"></div>
+				<!-- <div class="col-md-6"><b>Max (ms):</b></div> -->
+				<!-- <div class="col-md-6"><input type="number" id="max-lat"></div> -->
+				<div id="max-lat" class="col-md-6 stats"></div>
 			</div>
 			<div class="row">
-				<div class="col-md-6"><b>Min (ms):</b></div>
-				<div class="col-md-6"><input type="number" id="min-lat"></div>
+				<!-- <div class="col-md-6"><b>Min (ms):</b></div> -->
+				<!-- <div class="col-md-6"><input type="number" id="min-lat"></div> -->
+				<div id="min-lat" class="col-md-6 stats"></div>
 			</div>
 		</div>
 		<div class="col-md-6"></div>
@@ -140,6 +142,7 @@ $(document).ready(function () {
 
 		stop_test = false;
 		$('svg.chart').remove();
+		$('.stats').html('');  // clear stat divs
 		lat_array = [];
 
 		var host = $('#host').val();
@@ -197,9 +200,9 @@ $(document).ready(function () {
 
 			}
 			var avg_lat = sum / lat_array.length;
-			$('#avg-lat').val(avg_lat.toFixed(2));
-			$('#max-lat').val(max_lat);
-			$('#min-lat').val(min_lat);
+			$('div#avg-lat').html('<b>Average Latency: </b>' + avg_lat.toFixed(1));
+			$('div#max-lat').html('<b>Max Latency: </b>' + max_lat);
+			$('div#min-lat').html('<b>Min Latency: </b>' + min_lat);
 		}
 
 		socket.on('message', function(data){
@@ -362,6 +365,8 @@ $(document).ready(function () {
 			            .thresholds(min_val + max_val + 2)  // use domain diff for ticks (hopefully forces bin size to 1)
 			            (histo_data);
 
+
+
 			var y = d3.scaleLinear()
 			    .domain([0, d3.max(bins, function(d) { return d.length; })])
 			    .range([height, 0]);
@@ -383,7 +388,11 @@ $(document).ready(function () {
 			    .attr("y", 6)
 			    .attr("x", (x(bins[0].x1) - x(bins[0].x0)) / 2)
 			    .attr("text-anchor", "middle")
-			    .text(function(d) { return formatCount(d.length); });
+			    .text(function(d) { 
+			    	if (d.length > 0) {
+			    		return formatCount(d.length);
+			    	}
+			    })
 
 			main.append("g")
 			    .attr("class", "axis axis--x")
