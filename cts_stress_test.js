@@ -104,6 +104,7 @@ $(document).ready(function () {
 		stop_test = true;
 	});
 
+
 	function d3Plots(latency_data) {
 
 		// var data = [[5,3], [10,17], [15,4], [2,8]];
