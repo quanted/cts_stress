@@ -1,5 +1,5 @@
 {
-	"name": "sensors",
+	"name": "cts_stress",
 	"version": "0.0.1",
 	"description": "Stress testing web sockets for CTS",
 	"main": "cts_stress_server.js",
