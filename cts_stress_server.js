@@ -4,11 +4,11 @@ var app = express();
 
 // below has following behavior locally vs production.
 // local: /css/cts_stress_styles.css, server: /stress/css/cts_stress_styles.css
-// app.use(express.static('public'));
+app.use(express.static('public'));
 
 // will adding /stress to app.use fix this? or will it
 // make the production url /stress/stress/css/cts_stress_styles.css
-app.use('/stress', express.static('public'));
+// app.use('/stress', express.static('public'));
 
 app.get('/', function (req, res) {
   // res.send('Hello World!');
