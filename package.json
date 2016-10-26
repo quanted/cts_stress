@@ -1,0 +1,14 @@
+{
+	"name": "sensors",
+	"version": "0.0.1",
+	"description": "Stress testing web sockets for CTS",
+	"main": "cts_stress_server.js",
+	"dependencies": {
+		"express": "4.14.0",
+		"path": "0.12.7"
+	},
+	"engines": {
+		"node": "0.12.2"
+	},
+	"author": "nick pope"
+}
