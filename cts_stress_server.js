@@ -2,8 +2,9 @@ var path = require('path');
 var express = require('express');
 var app = express();
 
-app.use('/static', express.static('js'));
-app.use('/static', express.static('css'));
+// app.use('/static', express.static('js'));
+// app.use('/static', express.static('css'));
+app.use(express.static('public'));
 
 app.get('/', function (req, res) {
   // res.send('Hello World!');

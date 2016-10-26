@@ -29,8 +29,8 @@ $(document).ready(function () {
 		var num_users = $('#num-users').val();
 		var user_rate = $('#user-rate').val();
 		var delay = Math.round(1000 / user_rate);
-		// var socket = io.connect(url, {'force new connecton': true});
-		var socket = io.connect('http://134.67.114.1', {'force new connection': true});
+		var socket = io.connect(url, {'force new connecton': true});
+		// var socket = io.connect('http://134.67.114.1', {'force new connection': true});
 
 		var i = 1;                     
 		function loopCalls() {          
