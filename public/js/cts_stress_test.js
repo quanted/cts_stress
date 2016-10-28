@@ -24,13 +24,18 @@ $(document).ready(function () {
 
 		var host = $('#host').val();
 		var port = $('#port').val();
-		var url = 'http://' + host + ':' + port;
+		
+		var socket;
+		if (typeof port === 'number') {
+			socket = io.connect(host, {'force new connection': true});
+		}
+		else {
+			socket = io.connect(host, {'port': port, 'force new connection': true});
+		}
 
 		var num_users = $('#num-users').val();
 		var user_rate = $('#user-rate').val();
 		var delay = Math.round(1000 / user_rate);
-		var socket = io.connect(url, {'force new connecton': true});
-		// var socket = io.connect('http://134.67.114.1', {'force new connection': true});
 
 		var i = 1;                     
 		function loopCalls() {          
