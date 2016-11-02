@@ -2,10 +2,10 @@ $(document).ready(function () {
 
 	var pchem_request = {
 		'chemical': 'CCC',
-		'props': ['water_sol'],
+		'pchem_request': {'chemaxon': ['water_sol']},
 		'calc': 'chemaxon',
-		'ph': null,
-	}
+		'ph': null
+	};
 
 	var stop_test = false;
 	var start_time, stop_time, latency;
@@ -37,27 +37,20 @@ $(document).ready(function () {
 		var user_rate = $('#user-rate').val();
 		var delay = Math.round(1000 / user_rate);
 
-		var i = 1;                     
+		var i = 0;
+		var requests_complete = false;                     
 		function loopCalls() {          
 			setTimeout(function () {    
 				var request = pchem_request;
 				request['start_time'] = Date.now();
-				socket.emit('say_hello', JSON.stringify(request));
+				// socket.emit('say_hello', JSON.stringify(request));
+				socket.emit('get_data', JSON.stringify(request));
 				i++;
 				if (i < num_users && stop_test != true) {
 					loopCalls();             
 				}
 				else { 
-					computeStats();
-
-					// transfor list to indexed list of list:
-					var d3_lat_array = [];
-					for (var j = 0; j < lat_array.length; j++) {
-						var xypair = [j + 1, lat_array[j]];
-						d3_lat_array.push(xypair);
-					}
-					d3Plots(d3_lat_array);
-
+					requests_complete = true;
 				} 
 			}, delay)
 		}
@@ -89,7 +82,10 @@ $(document).ready(function () {
 		}
 
 		socket.on('message', function(data){
-			start_time = JSON.parse(data)['start_time'];
+			i--;  // decrement call counter
+			// start_time = JSON.parse(data)['start_time'];
+			var data_obj = JSON.parse(data);
+			start_time = data_obj['request_post']['start_time'];
 			stop_time = Date.now();
 			latency = stop_time - start_time;  // diff in ms
 			if (!(typeof latency === "number")) {
@@ -97,6 +93,16 @@ $(document).ready(function () {
 			}
 			lat_array.push(latency);
 			console.log("latency: " + latency);
+			if (i == 0 && requests_complete) {
+				computeStats();
+				// transfor list to indexed list of list:
+				var d3_lat_array = [];
+				for (var j = 0; j < lat_array.length; j++) {
+					var xypair = [j + 1, lat_array[j]];
+					d3_lat_array.push(xypair);
+				}
+				d3Plots(d3_lat_array);
+			} 
 		});
 
 		socket.on('close', function(){
