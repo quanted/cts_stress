@@ -17,44 +17,100 @@ $(document).ready(function () {
 
 	$('#start-test').on('click', function () {
 
+		blockInterface(true);
+
 		stop_test = false;
-		$('svg.chart').remove();
+		$('svg.chart').remove();  // clear charts from page
 		$('.stats').html('');  // clear stat divs
-		lat_array = [];
+		lat_array = [];  // latency array
 
 		var host = $('#host').val();
 		var port = $('#port').val();
-		
-		var socket;
-		if (typeof port === 'number') {
-			socket = io.connect(host, {'force new connection': true});
-		}
-		else {
-			socket = io.connect(host, {'port': port, 'force new connection': true});
-		}
 
 		var num_users = $('#num-users').val();
 		var user_rate = $('#user-rate').val();
-		var delay = Math.round(1000 / user_rate);
+		var delay = Math.round(1000 / user_rate);  // delay in ms
 
-		var i = 0;
-		var requests_complete = false;                     
+		var calls_sent = 0;
+		var calls_received = 0;
+		var requests_complete = false;
+
 		function loopCalls() {          
+
 			setTimeout(function () {    
+
 				var request = pchem_request;
 				request['start_time'] = Date.now();
-				// socket.emit('say_hello', JSON.stringify(request));
-				socket.emit('get_data', JSON.stringify(request));
-				i++;
-				if (i < num_users && stop_test != true) {
+				socketWhisperer(request);
+
+				calls_sent++;
+				if (calls_sent < num_users && stop_test != true) {
 					loopCalls();             
 				}
 				else { 
 					requests_complete = true;
 				} 
+
 			}, delay)
+
 		}
 		loopCalls();
+
+
+		function socketWhisperer(request) {
+
+			var socket;
+			if (typeof port === 'number') {
+				socket = io.connect(host, {'force new connection': true});
+			}
+			else {
+				socket = io.connect(host, {'port': port, 'force new connection': true});
+			}
+
+			socket.emit('get_data', JSON.stringify(request));
+
+			socket.on('message', function(data){
+				// calls_sent--;  // decrement call counter
+				calls_received++;
+				updateProgressBar(calls_received, num_users);  // num_users == total_calls
+
+				var data_obj = JSON.parse(data);
+				start_time = data_obj['request_post']['start_time'];
+				stop_time = Date.now();
+				latency = stop_time - start_time;  // diff in ms
+
+				if (!(typeof latency === "number")) {
+					// could this count as a failure?
+					alert("latency value " + latency + " is NaN..");
+				}
+				else {
+					lat_array.push(latency);
+				}
+				console.log("latency: " + latency);
+				if (calls_received == calls_sent && requests_complete) {
+					// all responses in, start workin w/ data:
+					
+					computeStats();
+
+					// transfor list to indexed list of list for d3:
+					var d3_lat_array = [];
+					for (var j = 0; j < lat_array.length; j++) {
+						var xypair = [j + 1, lat_array[j]];
+						d3_lat_array.push(xypair);
+					}
+
+					plotStressData(d3_lat_array);
+					blockInterface(false);
+					
+				} 
+			});
+
+			socket.on('close', function(){
+				console.log("socket closed.");
+				socket.close();
+			});
+
+		}
 
 		function computeStats() {
 			// min, max, and avg latency
@@ -76,39 +132,10 @@ $(document).ready(function () {
 
 			}
 			var avg_lat = sum / lat_array.length;
-			$('div#avg-lat').html('<b>Average Latency: </b>' + avg_lat.toFixed(1));
-			$('div#max-lat').html('<b>Max Latency: </b>' + max_lat);
-			$('div#min-lat').html('<b>Min Latency: </b>' + min_lat);
+			$('div#avg-lat').html('<b>Average Latency (ms): </b>' + avg_lat.toFixed(1));
+			$('div#max-lat').html('<b>Max Latency (ms): </b>' + max_lat);
+			$('div#min-lat').html('<b>Min Latency (ms): </b>' + min_lat);
 		}
-
-		socket.on('message', function(data){
-			i--;  // decrement call counter
-			// start_time = JSON.parse(data)['start_time'];
-			var data_obj = JSON.parse(data);
-			start_time = data_obj['request_post']['start_time'];
-			stop_time = Date.now();
-			latency = stop_time - start_time;  // diff in ms
-			if (!(typeof latency === "number")) {
-				alert("latency value " + latency + " is NaN..");
-			}
-			lat_array.push(latency);
-			console.log("latency: " + latency);
-			if (i == 0 && requests_complete) {
-				computeStats();
-				// transfor list to indexed list of list:
-				var d3_lat_array = [];
-				for (var j = 0; j < lat_array.length; j++) {
-					var xypair = [j + 1, lat_array[j]];
-					d3_lat_array.push(xypair);
-				}
-				d3Plots(d3_lat_array);
-			} 
-		});
-
-		socket.on('close', function(){
-			console.log("socket closed.");
-			socket.close();
-		});
 
 	});
 
@@ -116,10 +143,9 @@ $(document).ready(function () {
 		stop_test = true;
 	});
 
-	
 
 
-	function d3Plots(latency_data) {
+	function plotStressData(latency_data) {
 
 		// var data = [[5,3], [10,17], [15,4], [2,8]];
 		var data = latency_data;
@@ -171,13 +197,13 @@ $(document).ready(function () {
 				.attr('class', 'main axis date')
 				.call(yAxis);
 
-			var valueline = d3.line()
-			    .x(function(d) { return x(d[0]); })
-			    .y(function(d) { return y(d[1]); });
+			// var valueline = d3.line()
+			//     .x(function(d) { return x(d[0]); })
+			//     .y(function(d) { return y(d[1]); });
 
-			main.append('path')
-				.attr('class', 'line')
-				.attr('d', valueline(latency_data));
+			// main.append('path')
+			// 	.attr('class', 'line')
+			// 	.attr('d', valueline(latency_data));
 
 			var g = main.append("svg:g"); 
 
@@ -224,9 +250,12 @@ $(document).ready(function () {
 			            .domain([min_val - 1, max_val + 1])
 			            .range([0, width]);
 
+			var x_buff = Math.round((max_val - min_val) / 10);
+
 			var bins = d3.histogram()
-			            .domain([min_val - 1, max_val + 1])
-			            .thresholds(min_val + max_val + 2)  // use domain diff for ticks (hopefully forces bin size to 1)
+			            .domain([min_val - x_buff, max_val + x_buff])
+			            // .thresholds(min_val + max_val + 2)  // use domain diff for ticks (hopefully forces bin size to 1)
+			            .thresholds(x_buff)
 			            (histo_data);
 
 
@@ -272,6 +301,47 @@ $(document).ready(function () {
 		plotScatterChart();
 		plotHistoChart(lat_array, min_lat, max_lat);
 
+	}
+
+
+	function updateProgressBar(calls_tracker, total_calls) {
+	    // var progress = 100 * (1 - (calls_tracker / total_calls));
+	    var progress = 100 * (calls_tracker / total_calls);
+	    $('#progressbar').progressbar({
+	        value: progress
+	    });  
+	}
+
+
+	function blockInterface(block) {
+	    if (block) {
+	        $.blockUI({
+	            css: {
+	                // "top": "" + $(window).scrollTop() + "",
+	                // "left": "" + $(window).scrollLeft() + "",
+	                "padding": "30px 20px",
+	                "width": "400px",
+	                "height": "250px",
+	                "border": "0 none",
+	                "border-radius": "4px",
+	                "-webkit-border-radius": "4px",
+	                "-moz-border-radius": "4px",
+	                "box-shadow": "3px 3px 15px #333",
+	                "-webkit-box-shadow": "3px 3px 15px #333",
+	                "-moz-box-shadow": "3px 3px 15px #333"
+	            },
+	            message: '<div id="pchem_wait"><h3 class="popup_header">Retrieving data...</h2><br><img src="/images/loader.gif" style="margin-top:-16px" id="load_wheel"><br><br><div id="progressbar"></div><br><input onclick="cancelRequest()" type="button" value="Cancel" id="btn-pchem-cancel"><br></div>',
+	            fadeIn: 500
+	        });
+	    }
+	    else { $.unblockUI(); }
+	}
+
+
+	function cancelRequest() {
+	    console.log("canceling request");
+	    socket.emit('get_data', JSON.stringify({'cancel': true, 'pchem_request': null}));
+	    $.unblockUI();
 	}
 
 
