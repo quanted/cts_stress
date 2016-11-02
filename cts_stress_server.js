@@ -12,7 +12,7 @@ app.use(express.static('public'));
 
 app.get('/', function (req, res) {
   // res.send('Hello World!');
-  res.sendFile(path.join(__dirname + '/cts_stress_page.html'));
+  res.sendFile(path.join(__dirname + '/public/html/cts_stress_page.html'));
 });
 
 app.listen(3000, function () {

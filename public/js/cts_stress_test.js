@@ -116,6 +116,8 @@ $(document).ready(function () {
 		stop_test = true;
 	});
 
+	
+
 
 	function d3Plots(latency_data) {
 
