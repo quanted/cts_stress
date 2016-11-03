@@ -7,10 +7,131 @@ $(document).ready(function () {
 		'ph': null
 	};
 
-	var stop_test = false;
-	var start_time, stop_time, latency;
-	var avg_lat, min_lat, max_lat;
-	var lat_array = [];
+	function Scenarios(num_users, delay, scenario) {
+
+		if (scenario == 'test') {
+			singlePchemRequest();
+		}
+
+		// public:
+		this.scenarios = ['test'];
+
+		// local vars:
+		var start_time =  null;
+		var stop_time =  null;
+		var stop_test =  false;
+		var calls_sent =  0;
+		var calls_received =  0;
+		var requests_complete =  false;
+		var latency_array =  [];
+
+
+		// this.singlePchemRequest = function (num_users, delay) {  
+		function singlePchemRequest() {        
+			setTimeout(function () {    
+				var request = pchem_request;
+				request['start_time'] = Date.now();
+				socketWhisperer(request, num_users);  // creates socket conn and listens
+				calls_sent++;
+				if (calls_sent < num_users && stop_test != true) {
+					singlePchemRequest ();             
+				}
+				else { 
+					requests_complete = true;
+				} 
+
+			}, delay)
+		};
+
+		function chemicalInfoRequest() {
+			return
+		};
+
+		function computeStats() {
+			// min, max, and avg latency
+			var sum = 0;
+			var max_lat = 0;
+			var min_lat = latency_array[0];
+			for (var i = 0; i < latency_array.length; i++) {
+				var val = latency_array[i];
+				sum += val;  // for avg
+				// determine max:
+				if (val > max_lat) { max_lat = val; }
+				// determine min:
+				if (val < min_lat) { min_lat = val; }
+			}
+			var avg_lat = sum / latency_array.length;
+
+			var result_obj = {
+				min: min_lat,
+				max: max_lat,
+				avg: avg_lat.toFixed(1)
+			};
+
+			return result_obj;
+		}
+
+		function socketWhisperer(request, total_calls) {
+
+			var socket;
+			var host = $('#host').val();
+			var port = parseInt($('#port').val());
+
+			if (typeof port === 'number') {
+				socket = io.connect(host, {'port': port, 'force new connection': true});
+			}
+			else {
+				socket = io.connect(host, {'force new connection': true});
+			}
+
+			socket.emit('get_data', JSON.stringify(request));
+
+			socket.on('message', function(data){
+				// calls_sent--;  // decrement call counter
+				calls_received++;
+				updateProgressBar(calls_received, total_calls);  // num_users == total_calls
+
+				var data_obj = JSON.parse(data);
+
+				start_time = data_obj['request_post']['start_time'];
+				stop_time = Date.now();
+
+				var latency = stop_time - start_time;  // diff in ms
+
+				if (!(typeof latency === "number")) {
+					// could count as a failure?
+					alert("latency value " + latency + " is NaN..");
+				}
+				else {
+					latency_array.push(latency);
+				}
+
+				console.log("latency: " + latency);
+
+				if (calls_received == calls_sent && requests_complete) {
+					computeStats();
+					// transfor list to indexed list of list for d3:
+					var d3_lat_array = [];
+					for (var j = 0; j < latency_array.length; j++) {
+						var xypair = [j + 1, latency_array[j]];
+						d3_lat_array.push(xypair);
+					}
+					plotStressData(d3_lat_array, latency_array);
+					blockInterface(false);
+				} 
+			});
+
+			socket.on('close', function(){
+				socket.close();
+				console.log("socket closed.");
+			});
+
+			socket.on('disconnect', function() {
+				console.log("user disconnected");
+			});
+		}
+
+	}
 
 	var pretty_request = JSON.stringify(pchem_request, undefined, 4);
 	$('#post-data').val(pretty_request);
@@ -19,125 +140,39 @@ $(document).ready(function () {
 
 		blockInterface(true);
 
-		stop_test = false;
 		$('svg.chart').remove();  // clear charts from page
 		$('.stats').html('');  // clear stat divs
-		lat_array = [];  // latency array
-
-		var host = $('#host').val();
-		var port = $('#port').val();
 
 		var num_users = $('#num-users').val();
 		var user_rate = $('#user-rate').val();
 		var delay = Math.round(1000 / user_rate);  // delay in ms
 
-		var calls_sent = 0;
-		var calls_received = 0;
-		var requests_complete = false;
-
-		function loopCalls() {          
-
-			setTimeout(function () {    
-
-				var request = pchem_request;
-				request['start_time'] = Date.now();
-				socketWhisperer(request);
-
-				calls_sent++;
-				if (calls_sent < num_users && stop_test != true) {
-					loopCalls();             
-				}
-				else { 
-					requests_complete = true;
-				} 
-
-			}, delay)
-
-		}
-		loopCalls();
-
-
-		function socketWhisperer(request) {
-
-			var socket;
-			if (typeof port === 'number') {
-				socket = io.connect(host, {'force new connection': true});
-			}
-			else {
-				socket = io.connect(host, {'port': port, 'force new connection': true});
-			}
-
-			socket.emit('get_data', JSON.stringify(request));
-
-			socket.on('message', function(data){
-				// calls_sent--;  // decrement call counter
-				calls_received++;
-				updateProgressBar(calls_received, num_users);  // num_users == total_calls
-
-				var data_obj = JSON.parse(data);
-				start_time = data_obj['request_post']['start_time'];
-				stop_time = Date.now();
-				latency = stop_time - start_time;  // diff in ms
-
-				if (!(typeof latency === "number")) {
-					// could this count as a failure?
-					alert("latency value " + latency + " is NaN..");
-				}
-				else {
-					lat_array.push(latency);
-				}
-				console.log("latency: " + latency);
-				if (calls_received == calls_sent && requests_complete) {
-					// all responses in, start workin w/ data:
-					
-					computeStats();
-
-					// transfor list to indexed list of list for d3:
-					var d3_lat_array = [];
-					for (var j = 0; j < lat_array.length; j++) {
-						var xypair = [j + 1, lat_array[j]];
-						d3_lat_array.push(xypair);
-					}
-
-					plotStressData(d3_lat_array);
-					blockInterface(false);
-					
-				} 
-			});
-
-			socket.on('close', function(){
-				console.log("socket closed.");
-				socket.close();
-			});
-
-		}
-
-		function computeStats() {
-			// min, max, and avg latency
-			var sum = 0;
-			max_lat = 0;
-			min_lat = lat_array[0];
-			for (var i = 0; i < lat_array.length; i++) {
-				var val = lat_array[i];
-				sum += val;  // for avg
-
-				// determine max:
-				if (val > max_lat) {
-					max_lat = val;
-				}
-				// determine min:
-				if (val < min_lat) {
-					min_lat = val;
-				}
-
-			}
-			var avg_lat = sum / lat_array.length;
-			$('div#avg-lat').html('<b>Average Latency (ms): </b>' + avg_lat.toFixed(1));
-			$('div#max-lat').html('<b>Max Latency (ms): </b>' + max_lat);
-			$('div#min-lat').html('<b>Min Latency (ms): </b>' + min_lat);
-		}
+		// choose a scenario here (runs asynchronously)
+		var scenarios = new Scenarios(num_users, delay, 'test');
 
 	});
+
+
+	// function computeStats() {
+	// 	// min, max, and avg latency
+	// 	var sum = 0;
+	// 	var max_lat = 0;
+	// 	var min_lat = lat_array[0];
+	// 	for (var i = 0; i < lat_array.length; i++) {
+	// 		var val = lat_array[i];
+	// 		sum += val;  // for avg
+	// 		// determine max:
+	// 		if (val > max_lat) { max_lat = val; }
+	// 		// determine min:
+	// 		if (val < min_lat) { min_lat = val; }
+	// 	}
+	// 	var avg_lat = sum / lat_array.length;
+	// 	$('div#avg-lat').html('<b>Average Latency (ms): </b>' + avg_lat.toFixed(1));
+	// 	$('div#max-lat').html('<b>Max Latency (ms): </b>' + max_lat);
+	// 	$('div#min-lat').html('<b>Min Latency (ms): </b>' + min_lat);
+	// }
+
+	// });
 
 	$('#stop-test').on('click', function () {
 		stop_test = true;
@@ -145,10 +180,10 @@ $(document).ready(function () {
 
 
 
-	function plotStressData(latency_data) {
+	function plotStressData(d3_latency_data, latency_array) {
 
 		// var data = [[5,3], [10,17], [15,4], [2,8]];
-		var data = latency_data;
+		var data = d3_latency_data;
 
 		// var dyn_height = $('div#scatter-chart').height();
 		// var dyn_width = $('div.chart-row').width() / 2;
@@ -160,6 +195,7 @@ $(document).ready(function () {
 		  , padding = 64;
 
 		var plotScatterChart = function () {
+
 			var x = d3.scaleLinear()
 				  .domain([0, d3.max(data, function(d) { return d[0]; })])
 				  .range([ 0, width ]);
@@ -226,7 +262,7 @@ $(document).ready(function () {
 	            .text("User Requests");
 			};
 
-		var plotHistoChart = function (histo_data, min_val, max_val) {
+		var plotHistoChart = function (histo_data) {
 
 			var max_val = d3.max(histo_data);
 			var min_val = d3.min(histo_data);
@@ -251,6 +287,7 @@ $(document).ready(function () {
 			            .range([0, width]);
 
 			var x_buff = Math.round((max_val - min_val) / 10);
+
 
 			var bins = d3.histogram()
 			            .domain([min_val - x_buff, max_val + x_buff])
@@ -299,7 +336,7 @@ $(document).ready(function () {
 		};
 
 		plotScatterChart();
-		plotHistoChart(lat_array, min_lat, max_lat);
+		plotHistoChart(latency_array);
 
 	}
 
@@ -310,6 +347,14 @@ $(document).ready(function () {
 	    $('#progressbar').progressbar({
 	        value: progress
 	    });  
+	}
+
+
+	function cancelRequest() {
+	    console.log("canceling request");
+	    socket.emit('get_data', JSON.stringify({'cancel': true, 'pchem_request': null}));
+	    // $.unblockUI();
+	    blockInterface(false);
 	}
 
 
@@ -336,13 +381,5 @@ $(document).ready(function () {
 	    }
 	    else { $.unblockUI(); }
 	}
-
-
-	function cancelRequest() {
-	    console.log("canceling request");
-	    socket.emit('get_data', JSON.stringify({'cancel': true, 'pchem_request': null}));
-	    $.unblockUI();
-	}
-
 
 });

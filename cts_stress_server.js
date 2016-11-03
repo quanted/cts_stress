@@ -15,6 +15,11 @@ app.get('/', function (req, res) {
   res.sendFile(path.join(__dirname + '/public/html/cts_stress_page.html'));
 });
 
-app.listen(3000, function () {
-  console.log('Example app listening on port 3000!');
+// client socket.io trying to connect to 134.67.114.1:3000/socket.io.... 
+// app.listen(3000, function () {
+//   console.log('Example app listening on port 3000!');
+// });
+
+app.listen(80, function () {
+  console.log('Example app listening on port 80!');
 });
