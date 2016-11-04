@@ -5,6 +5,9 @@
 	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.2.8/d3.min.js"></script>
 	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery.blockUI/2.70/jquery.blockUI.min.js"></script>
 
+	<!-- Bootstrap JS -->
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
 	<!-- Latest compiled and minified CSS -->
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 	<!-- Optional theme -->
@@ -41,13 +44,27 @@
 			<div class="row">
 				<div class="col-md-6"><b>Port:</b></div>
 				<div class="col-md-6"><input type="number" id="port" class="input-block-level"></div>
-			</div><br>
-			<div class="row">
-				<div class="col-md-6"><b>Request Data:</b></div>
-				<div class="col-md-6"><textarea id="post-data" class="input-block-level" rows="12" cols="32"></textarea></div>
 			</div><br><br>
-			<input type="button" value="start" id="start-test" class="btn btn-large"> &nbsp;&nbsp;
-			<input type="button" value="stop" id="stop-test" class="btn btn-large">
+			<div class="row">
+				<div class="col-md-6"><b>User Scenarios:</b></div>
+				<div class="col-md-6">
+					<div class="dropdown">
+						<button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" id="user-scenarios">
+						<span class="caret"></span></button>
+						<ul class="dropdown-menu">
+							<li><a href="#">Test</a></li>
+							<li><a href="#">Chemical Info</a></li>
+							<li><a href="#">P-chem Requests</a></li>
+							<li><a href="#">Transformation Requests</a></li>
+							<li><a href="#">Speciation Workflow</a></li>
+							<li><a href="#">P-chem Workflow</a></li>
+							<li><a href="#">Transformation Workflow</a></li>
+						</ul>
+					</div>
+				</div>
+			</div><br><br><br><br>
+			<input type="button" value="start" id="start-test" class="btn btn-primary btn-large"> &nbsp;&nbsp;
+			<input type="button" value="stop" id="stop-test" class="btn btn-primary btn-large">
 		</div>
 		<div class="col-md-6"></div>
 	</div><br><br><br>

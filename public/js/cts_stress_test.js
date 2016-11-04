@@ -53,6 +53,12 @@ var StressTest = {
 			stop_test = true;
 		});
 
+		$('.dropdown-menu li a').on('click', function () {
+			var user_scenario = $(this).html();
+			var scenario_html = user_scenario + '&nbsp;<span class="caret"></span>';
+			$('#user-scenarios').html(scenario_html);
+		});
+
 	},
 
 
@@ -177,8 +183,8 @@ var StressTest = {
 
 	cancelRequest: function() {
 	    console.log("canceling request");
-	    socket.emit('get_data', JSON.stringify({'cancel': true, 'pchem_request': null}));
-	    blockInterface(false);
+	    // socket.emit('get_data', JSON.stringify({'cancel': true, 'pchem_request': null}));
+	    StressTest.blockInterface(false);
 	},
 
 	blockInterface: function(block) {
@@ -196,7 +202,7 @@ var StressTest = {
 	                "-webkit-box-shadow": "3px 3px 15px #333",
 	                "-moz-box-shadow": "3px 3px 15px #333"
 	            },
-	            message: '<div id="pchem_wait"><h3 class="popup_header">Retrieving data...</h2><br><img src="/images/loader.gif" style="margin-top:-16px" id="load_wheel"><br><br><div id="progressbar"></div><br><input onclick="cancelRequest()" type="button" value="Cancel" id="btn-pchem-cancel"><br></div>',
+	            message: '<div id="pchem_wait"><h3 class="popup_header">Retrieving data...</h2><br><img src="/images/loader.gif" style="margin-top:-16px" id="load_wheel"><br><br><div id="progressbar"></div><br><input onclick="StressTest.cancelRequest()" type="button" value="Cancel" id="btn-pchem-cancel"><br></div>',
 	            fadeIn: 500
 	        });
 	    }
