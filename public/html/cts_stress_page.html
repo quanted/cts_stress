@@ -26,8 +26,8 @@
 	<div class="text-center"><h2> Stress testing CTS web sockets </h2></div>
 	<br><br>
 	<div class="row">
-		<div class="col-md-2"></div>
-		<div class="col-md-4">
+		<!-- <div class="col-md-2"></div> -->
+		<div class="col-md-6">
 			<h3> Inputs </h3><br>
 			<div class="row">
 				<div class="col-md-6"><b>Number of users:</b></div>
@@ -48,25 +48,34 @@
 			<div class="row">
 				<div class="col-md-6"><b>User Scenarios:</b></div>
 				<div class="col-md-6">
-					<div class="dropdown">
-						<button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" id="user-scenarios">
-						<span class="caret"></span></button>
-						<ul class="dropdown-menu">
-							<li><a href="#">Test</a></li>
-							<li><a href="#">Chemical Info</a></li>
-							<li><a href="#">P-chem Requests</a></li>
-							<li><a href="#">Transformation Requests</a></li>
-							<li><a href="#">Speciation Workflow</a></li>
-							<li><a href="#">P-chem Workflow</a></li>
-							<li><a href="#">Transformation Workflow</a></li>
-						</ul>
-					</div>
+					<select class="selectpicker">
+						<option>Test</option>
+						<option>Chemical Info</option>
+						<option>P-chem Requests</option>
+						<option>Transformation Requests</option>
+						<option disabled>Speciation Workflow</option>
+						<option disabled>P-chem Workflow</option>
+						<option disabled>Transformation Workflow</option>
+					</select>
+				</div><br><br>
+			</div>
+			<div class="row">
+				<div class="btn-group calc-options hidden">
+					<button class="btn btn-primary calc-btn" data-toggle="button">chemaxon</button> <!-- (4)  -->
+					<button class="btn btn-primary calc-btn" data-toggle="button">epi</button> <!--  (7) -->
+					<button class="btn btn-primary calc-btn" data-toggle="button">test</button> <!--  (4) -->
+					<button class="btn btn-primary calc-btn" data-toggle="button">sparc</button> <!--  (8) -->
+					<button class="btn btn-primary calc-btn" data-toggle="button">measured</button> <!--  (6) -->
 				</div>
 			</div><br><br><br><br>
-			<input type="button" value="start" id="start-test" class="btn btn-primary btn-large"> &nbsp;&nbsp;
-			<input type="button" value="stop" id="stop-test" class="btn btn-primary btn-large">
+			<div class="row">
+				<div class="col-md-offset-8">
+					<input type="button" value="start" id="start-test" class="btn btn-primary btn-large"> &nbsp;&nbsp;
+					<input type="button" value="stop" id="stop-test" class="btn btn-primary btn-large">
+				</div>
+			</div>
 		</div>
-		<div class="col-md-6"></div>
+		<!-- <div class="col-md-6"></div> -->
 	</div><br><br><br>
 	
 	<div class="row">
