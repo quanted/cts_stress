@@ -37,3 +37,17 @@ pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
 .boolean { color: blue; }
 .null { color: magenta; }
 .key { color: red; }
+
+
+div#color-codes {
+  background-color:#e5e5e5;
+  display: inline-block;
+}
+
+#color-codes p {
+  float: left;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 4px;
+  /*background-color:#e5e5e5;*/
+}

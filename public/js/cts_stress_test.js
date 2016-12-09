@@ -19,7 +19,7 @@ var StressTest = {
 
 	transformation_request: {
 		"structure": "CCC",
-		"generationLimit": 1,
+		"generationLimit": 4,
 		'populationLimit': 0,
         'likelyLimit': 0.001,
         'excludeCondition': ""
@@ -44,6 +44,13 @@ var StressTest = {
 		data:  []
 	},
 
+	result_obj: {
+		x: null,
+		latency: null,
+		sessionid: null,
+		calc: null
+	},
+
 	init: function (settings) {
 		StressTest.config = {
 			test_host: '134.67.114.1',
@@ -58,9 +65,9 @@ var StressTest = {
 		// allow overriding of default config
 		$.extend(StressTest.config, settings);
 
-		// show post json in textarea
-		var pretty_request = JSON.stringify(StressTest.default_request, undefined, 4);
-		$('#post-data').val(pretty_request);
+		// // show post json in textarea
+		// var pretty_request = JSON.stringify(StressTest.default_request, undefined, 4);
+		// $('#post-data').val(pretty_request);
 
 		StressTest.setup();  // run setup after init
 
@@ -79,6 +86,8 @@ var StressTest = {
 
 			$('svg.chart').remove();  // clear charts from page
 			$('.stats').html('');  // clear stat divs
+			// $('div#color-codes').hide();
+			$('div#color-codes').html('');
 			StressTest.selected_calcs = []; // start with fresh array
 
 			var num_users = $('#num-users').val();
@@ -146,7 +155,7 @@ var StressTest = {
 						request['start_time'] = Date.now();
 						request['scenario'] = scenario
 						StressTest.ajaxHandler(request);
-
+						break;
 					case 'Test':
 					default:
 						request = StressTest.default_request;
@@ -220,6 +229,10 @@ var StressTest = {
 		socket.on('disconnect', function() {
 			console.log("user disconnected");
 		});
+
+		socket.on('error', function() {
+			console.log("socket error event triggered!");
+		});
 	},
 
 	ajaxHandler: function(request) {
@@ -232,13 +245,15 @@ var StressTest = {
 				StressTest.scenario.calls_received++;
 				StressTest.updateProgressBar();
 
+				console.log("Returned data: " + data);  // actual data, or error?
+
 				var data_obj = JSON.parse(data);
 				StressTest.trackProgress(data_obj);
 
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
 				// TODO: add to failures count instead of null start_time
-				console.log(textStatus);
+				console.log("Ajax error: " + textStatus);
 				StressTest.scenario.calls_received++;
 
 				var error_data = {'request_post': {'start_time': null}};
@@ -256,15 +271,27 @@ var StressTest = {
 		// var latency = stop_time - start_time;  // diff in ms
 		var latency = (stop_time - start_time) / 1000;  // diff in s
 
-		if (!(typeof latency === "number")) {
+		// var d3_data_obj = StressTest.result_obj;
+		// d3_data_obj.latency = (stop_time - start_time) / 1000;  // diff in s
+		// d3_data_obj.sessionid = data_obj['request_post']['sessionid'];
+		// d3_data_obj.calc = data_obj['request_post']['calc'];
+		var d3_data_obj = {
+			latency: latency,
+			sessionid: data_obj['request_post']['sessionid'],
+			calc: data_obj['request_post']['calc']
+		};
+
+
+		if (!(typeof d3_data_obj.latency === "number")) {
 			// could count as a failure?
-			alert("latency value " + latency + " is NaN..");
+			alert("latency value " + d3_data_obj.latency + " is NaN..");
 		}
 		else {
-			StressTest.scenario.data.push(latency);
+			// StressTest.scenario.data.push(latency);
+			StressTest.scenario.data.push(d3_data_obj);
 		}
 
-		console.log("latency: " + latency);
+		console.log("latency: " + d3_data_obj.latency);
 		console.log("received: " + StressTest.scenario.calls_received + " out of " + StressTest.scenario.total_calls);
 
 		// if (StressTest.scenario.calls_received == StressTest.scenario.calls_sent && StressTest.scenario.requests_complete) {
@@ -370,8 +397,12 @@ var StressResults = {
 		// d3ize data (array --> array of xypairs)
 		StressResults.scatter_data = [];
 		for (var j = 0; j < StressTest.scenario.data.length; j++) {
-			var xypair = [j + 1, StressResults.data[j]];
-			StressResults.scatter_data.push(xypair);
+			// var xypair = [j + 1, StressResults.data[j]];
+			// StressResults.scatter_data.push(xypair);
+			// StressTest.scenario.data[j]['x'] = j + 1;
+			var scatter_datum = StressTest.scenario.data[j];
+			scatter_datum['x'] = j + 1;
+			StressResults.scatter_data.push(scatter_datum);
 		}
 
 		StressResults.plotScatterChart();
@@ -384,9 +415,9 @@ var StressResults = {
 		// min, max, and avg latency
 		var sum = 0;
 		var max_lat = 0;
-		var min_lat = StressResults.data[0];
+		var min_lat = StressResults.data[0]['latency'];
 		for (var i = 0; i < StressResults.data.length; i++) {
-			var val = StressResults.data[i];
+			var val = StressResults.data[i]['latency'];
 			sum += val;  // for avg
 			if (val > max_lat) { max_lat = val; }
 			if (val < min_lat) { min_lat = val; }
@@ -401,16 +432,28 @@ var StressResults = {
 		$('div#avg-lat').html('<b>Average Latency (s): </b>' + stats.avg);
 		$('div#max-lat').html('<b>Max Latency (s): </b>' + stats.max);
 		$('div#min-lat').html('<b>Min Latency (s): </b>' + stats.min);
+
+		$('div#color-codes').html('<p style="color:#c82300;"><b>ChemAxon</b></p><p style="color:#ffaf00;"><b>EPI</b></p><p style="color:#ffff7f;"><b>TEST</b></p><p style="color:#73b432;"><b>SPARC</b></p><p style="color:#005be0;"><b>Measured</b></p>');
+		
+
+		// $('#color-codes').removeClass('hidden');
 	},
 
 	plotScatterChart: function () {
 
+		// var x = d3.scaleLinear()
+		// 	  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d[0]; })])
+		// 	  .range([ 0, StressResults.width ]);
+
+		// var y = d3.scaleLinear()
+		// 		  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d[1]; })])
+		// 		  .range([ StressResults.height, 0 ]);
 		var x = d3.scaleLinear()
-			  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d[0]; })])
+			  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d.x; })])
 			  .range([ 0, StressResults.width ]);
 
 		var y = d3.scaleLinear()
-				  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d[1]; })])
+				  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d.latency; })])
 				  .range([ StressResults.height, 0 ]);
 
 		// appends chart to body of page:
@@ -455,9 +498,32 @@ var StressResults = {
 		g.selectAll("scatter-dots")
 		  .data(StressResults.scatter_data)
 		  .enter().append("svg:circle")
-			  .attr("cx", function (d,i) { return x(d[0]); } )
-			  .attr("cy", function (d) { return y(d[1]); } )
-			  .attr("r", 8);
+			  // .attr("cx", function (d,i) { return x(d[0]); } )
+			  // .attr("cy", function (d) { return y(d[1]); } )
+			  .attr("cx", function (d,i) { return x(d.x); } )
+			  .attr("cy", function (d) { return y(d.latency); } )
+			  .attr("r", 8)
+			  .style("fill", function (d, i) {
+			  	// want to color code by calc here.
+			  	if (d.calc == "chemaxon") {
+			  		return "#c82300";
+			  	}
+			  	else if (d.calc == "epi") {
+			  		return "#ffaf00";
+			  	}
+			  	else if (d.calc == "test") {
+			  		return "#ffff7f";
+			  	}
+			  	else if (d.calc == "sparc") {
+			  		return "#73b432";
+			  	}
+			  	else if (d.calc == "measured") {
+			  		return "#005be0";
+			  	}
+			  	else {
+			  		return "black";
+			  	}
+			  });
 
 		// now add titles to the axes
         scatter_chart.append("text")
@@ -471,78 +537,78 @@ var StressResults = {
             .text("User Requests");
 	},
 
-	plotHistoChart: function (histo_data) {
+	// plotHistoChart: function (histo_data) {
 
-		var max_val = d3.max(histo_data);
-		var min_val = d3.min(histo_data);
+	// 	var max_val = d3.max(histo_data);
+	// 	var min_val = d3.min(histo_data);
 
-		var formatCount = d3.format(",.0f");
+	// 	var formatCount = d3.format(",.0f");
 
-		var histo_chart = d3.select('div.histo-content')
-			.append('svg:svg')
-			.attr('width', StressResults.width + StressResults.margin.right + StressResults.margin.left)
-			.attr('height', StressResults.height + StressResults.margin.top + StressResults.margin.bottom)
-			.attr('class', 'chart')
-			.attr('id', 'histo-chart')
+	// 	var histo_chart = d3.select('div.histo-content')
+	// 		.append('svg:svg')
+	// 		.attr('width', StressResults.width + StressResults.margin.right + StressResults.margin.left)
+	// 		.attr('height', StressResults.height + StressResults.margin.top + StressResults.margin.bottom)
+	// 		.attr('class', 'chart')
+	// 		.attr('id', 'histo-chart')
 
-		var main = histo_chart.append('g')
-			.attr("transform", "translate(" + StressResults.margin.left + "," + StressResults.margin.top + ")")
-			.attr('width', StressResults.width)
-			.attr('height', StressResults.height)
-			.attr('class', 'main')
+	// 	var main = histo_chart.append('g')
+	// 		.attr("transform", "translate(" + StressResults.margin.left + "," + StressResults.margin.top + ")")
+	// 		.attr('width', StressResults.width)
+	// 		.attr('height', StressResults.height)
+	// 		.attr('class', 'main')
 
-		var x = d3.scaleLinear()
-		            .domain([min_val - 1, max_val + 1])
-		            .range([0, StressResults.width]);
+	// 	var x = d3.scaleLinear()
+	// 	            .domain([min_val - 1, max_val + 1])
+	// 	            .range([0, StressResults.width]);
 
-		var x_buff = Math.round((max_val - min_val) / 10);
-
-
-		var bins = d3.histogram()
-		            .domain([min_val - x_buff, max_val + x_buff])
-		            // .thresholds(min_val + max_val + 2)  // use domain diff for ticks (hopefully forces bin size to 1)
-		            .thresholds(x_buff)
-		            (histo_data);
+	// 	var x_buff = Math.round((max_val - min_val) / 10);
 
 
+	// 	var bins = d3.histogram()
+	// 	            .domain([min_val - x_buff, max_val + x_buff])
+	// 	            // .thresholds(min_val + max_val + 2)  // use domain diff for ticks (hopefully forces bin size to 1)
+	// 	            .thresholds(x_buff)
+	// 	            (histo_data);
 
-		var y = d3.scaleLinear()
-		    .domain([0, d3.max(bins, function(d) { return d.length; })])
-		    .range([StressResults.height, 0]);
 
-		var bar = main.selectAll(".bar")
-		  .data(bins)
-		  .enter().append("g")
-		    .attr("class", "bar")
-		    .attr("transform", function(d) { return "translate(" + x(d.x0 - 0.25) + "," + y(d.length) + ")"; });
 
-		bar.append("rect")
-		    .attr("x", 1)
-		    // .attr("width", x(bins[0].x1) - x(bins[0].x0) - 1)
-		    .attr("width", x(bins[0].x1) - x(bins[0].x0))
-		    .attr("height", function(d) { return StressResults.height - y(d.length); });
+	// 	var y = d3.scaleLinear()
+	// 	    .domain([0, d3.max(bins, function(d) { return d.length; })])
+	// 	    .range([StressResults.height, 0]);
 
-		bar.append("text")
-		    .attr("dy", ".75em")
-		    .attr("y", 6)
-		    .attr("x", (x(bins[0].x1) - x(bins[0].x0)) / 2)
-		    .attr("text-anchor", "middle")
-		    .text(function(d) { 
-		    	if (d.length > 0) {
-		    		return formatCount(d.length);
-		    	}
-		    })
+	// 	var bar = main.selectAll(".bar")
+	// 	  .data(bins)
+	// 	  .enter().append("g")
+	// 	    .attr("class", "bar")
+	// 	    .attr("transform", function(d) { return "translate(" + x(d.x0 - 0.25) + "," + y(d.length) + ")"; });
 
-		main.append("g")
-		    .attr("class", "axis axis--x")
-		    .attr("transform", "translate(0," + StressResults.height + ")")
-		    .call(d3.axisBottom(x));
+	// 	bar.append("rect")
+	// 	    .attr("x", 1)
+	// 	    // .attr("width", x(bins[0].x1) - x(bins[0].x0) - 1)
+	// 	    .attr("width", x(bins[0].x1) - x(bins[0].x0))
+	// 	    .attr("height", function(d) { return StressResults.height - y(d.length); });
 
-		histo_chart.append("text")
-			.attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
-			.attr("transform", "translate("+ (StressResults.dyn_width/2) +","+(StressResults.height+StressResults.padding)+")")  // centre below axis
-			.text("Latency (ms)");
-	}
+	// 	bar.append("text")
+	// 	    .attr("dy", ".75em")
+	// 	    .attr("y", 6)
+	// 	    .attr("x", (x(bins[0].x1) - x(bins[0].x0)) / 2)
+	// 	    .attr("text-anchor", "middle")
+	// 	    .text(function(d) { 
+	// 	    	if (d.length > 0) {
+	// 	    		return formatCount(d.length);
+	// 	    	}
+	// 	    })
+
+	// 	main.append("g")
+	// 	    .attr("class", "axis axis--x")
+	// 	    .attr("transform", "translate(0," + StressResults.height + ")")
+	// 	    .call(d3.axisBottom(x));
+
+	// 	histo_chart.append("text")
+	// 		.attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+	// 		.attr("transform", "translate("+ (StressResults.dyn_width/2) +","+(StressResults.height+StressResults.padding)+")")  // centre below axis
+	// 		.text("Latency (ms)");
+	// }
 
 };
 
