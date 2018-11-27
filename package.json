@@ -1,16 +1,32 @@
 {
   "name": "cts_stress",
+  "author": "nick pope",
   "version": "0.0.1",
-  "description": "Stress testing web sockets for CTS",
+  "description": "Stress testing CTS",
   "main": "cts_stress_server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "browserify public/js/main.js -o dist/bundle.js",
+    "serve": "node cts_stress_server.js",
+    "deploy": "npm run build && npm run serve"
+  },
   "dependencies": {
+    "block-ui": "^2.70.1",
     "body-parser": "^1.15.2",
-    "express": "4.14.0",
-    "path": "0.12.7",
-    "querystring": ">=0.2.0"
+    "bootstrap": "^4.0.0",
+    "d3": "^5.7.0",
+    "eventemitter2": "^5.0.1",
+    "express": "^4.16.2",
+    "jquery": "^3.3.1",
+    "jspdf": "1.4.1",
+    "ngx-export-as": "0.0.7-alfa",
+    "path": "^0.12.7",
+    "popper.js": "^1.14.1",
+    "progressbar.js": "^1.0.1",
+    "querystring": "^0.2.0",
+    "socket.io": "^2.0.4"
   },
-  "engines": {
-    "node": "0.12.2"
-  },
-  "author": "nick pope"
+  "devDependencies": {
+    "browserify": "^16.1.1"
+  }
 }

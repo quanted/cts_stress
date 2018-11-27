@@ -1,4 +1,17 @@
+const config = require('../../config');  // import cts_stress config
 
+// Requirements:
+var $ = require('jquery');
+var blockUI = require('block-ui');
+var eventemitter2 = require('eventemitter2');
+var socketio = require('socket.io-client');
+var d3 = require('d3');
+
+
+
+/****************************
+Stress Test Module
+****************************/
 var StressTest = {
 
 	default_request: {
@@ -19,17 +32,17 @@ var StressTest = {
 
 	transformation_request: {
 		"structure": "CCC",
-		"generationLimit": 4,
+		"generationLimit": 2,
 		'populationLimit': 0,
         'likelyLimit': 0.001,
         'excludeCondition': ""
 	},
 
 	available_props: {
-		'chemaxon': ['water_sol', 'ion_con', 'kow_no_ph', 'kow_wph'],
-		'epi': ['melting_point', 'boiling_point', 'water_sol', 'vapor_press', 'henrys_law_con', 'kow_no_ph', 'koc'],
-		'test': ['melting_point', 'boiling_point', 'water_sol', 'vapor_press'],
-		'sparc': ['boiling_point', 'water_sol', 'vapor_press', 'mol_diss', 'ion_con', 'henrys_law_con', 'kow_no_ph', 'kow_wph'],
+		'chemaxon': ['water_sol', 'ion_con', 'kow_no_ph', 'kow_wph', 'water_sol_ph'],
+		'epi': ['melting_point', 'boiling_point', 'water_sol', 'vapor_press', 'henrys_law_con', 'kow_no_ph', 'koc', 'log_bcf', 'log_baf'],
+		'test': ['melting_point', 'boiling_point', 'water_sol', 'vapor_press', 'log_bcf'],
+		'sparc': ['boiling_point', 'water_sol', 'vapor_press', 'mol_diss', 'mol_diss_air', 'ion_con', 'henrys_law_con', 'kow_no_ph', 'kow_wph'],
 		'measured': ['melting_point', 'boiling_point', 'water_sol', 'vapor_press', 'henrys_law_con', 'kow_no_ph']
 	},
 
@@ -51,13 +64,13 @@ var StressTest = {
 		calc: null
 	},
 
+
+
 	init: function (settings) {
 		StressTest.config = {
-			test_host: '134.67.114.1',
-			test_port: 80,
-			// 'test_host': 'localhost',
-			// 'test_port': 4000,
-			num_users: 10,
+			test_host: 'localhost',
+			test_port: 4000,
+			num_users: 1,
 			user_rate: 2,
 			ajax_path: '/ajax'
 		};
@@ -65,13 +78,11 @@ var StressTest = {
 		// allow overriding of default config
 		$.extend(StressTest.config, settings);
 
-		// // show post json in textarea
-		// var pretty_request = JSON.stringify(StressTest.default_request, undefined, 4);
-		// $('#post-data').val(pretty_request);
-
 		StressTest.setup();  // run setup after init
 
 	},
+
+
 
 	setup: function () {
 
@@ -90,6 +101,12 @@ var StressTest = {
 			$('div#color-codes').html('');
 			StressTest.selected_calcs = []; // start with fresh array
 
+			var host = $('#host').val();
+			var port = parseFloat($('#port').val());
+
+			StressTest.config.test_host = host;
+			StressTest.config.test_port = port;
+
 			var num_users = $('#num-users').val();
 			var user_rate = $('#user-rate').val();
 			var delay = Math.round(1000 / user_rate);  // delay in ms
@@ -99,7 +116,6 @@ var StressTest = {
 			$('.calc-options .active').each(function() {StressTest.selected_calcs.push($(this).html())});
 
 			StressTest.runScenario(num_users, delay, user_scenario);
-			// StressTest.runScenario(delay, user_scenario);
 
 		});
 
@@ -110,15 +126,46 @@ var StressTest = {
 		$('.selectpicker').change(function () {
 			var selected_scenario = $(this).children(':selected').text();
 			if (selected_scenario == 'P-chem Requests') {
-				$('.calc-options').removeClass('hidden');
+				$('.calc-options').show();
+				$('#batch-upload-div').hide();
+			}
+			else if (selected_scenario == 'P-chem Requests (batch)') {
+				$('#batch-upload-div').show();
+				$('.calc-options').show();	
 			}
 			else {
-				$('.calc-options').addClass('hidden');
+				$('#batch-upload-div').hide();
+				$('.calc-options').hide();
 			}
+		});
+
+		// Do this stuff once file is uploaded:
+		$('#upfile1').change(function () {
+
+			var file = this.files[0];
+			var textType = /text.*/;
+
+			if (file.type.match(textType)) {
+				var reader = new FileReader();
+				reader.onload = function (e) {
+					StressTest.batch_data = StressTest.readBatchInputFile(reader.result);
+				}
+				reader.readAsText(file);
+			}
+			else {
+				$('#fileDisplayArea').html("File not supported!");
+			}
+
+		});
+
+		$('#download-pdf-button').on('click', function() {
+			// Submit PDF POST form
+			$('form.post_form').submit();
 		});
 
 
 	},
+
 
 
 	runScenario: function(num_users, delay, scenario) {
@@ -139,7 +186,7 @@ var StressTest = {
 						break;
 
 					case 'P-chem Requests':
-						// each user requesting multiple props/calcs:
+						// each user requesting multiple calcs:
 						request = StressTest.pchem_request;
 						for (var i = 0; i < StressTest.selected_calcs.length; i++) {
 							var calc = StressTest.selected_calcs[i];
@@ -149,12 +196,28 @@ var StressTest = {
 						StressTest.socketHandler(request);
 						break;
 
+					case 'P-chem Requests (batch)':
+						// each user requesting multiple calcs:
+						if (StressTest.batch_data.length < 1) {
+							alert("Upload a list of batch chemicals before running the P-chem Requests batch scenario.");
+							return;
+						}
+						request = StressTest.pchem_request;
+						for (var i = 0; i < StressTest.selected_calcs.length; i++) {
+							var calc = StressTest.selected_calcs[i];
+							request['pchem_request'][calc] = StressTest.available_props[calc];
+						}
+						request['nodes'] = StressTest.batch_data;
+						request['start_time'] = Date.now();
+						StressTest.socketHandler(request);
+						break;
+
 					case 'Transformation Requests':
 						// each user requesting trans products
 						request = StressTest.transformation_request;
 						request['start_time'] = Date.now();
 						request['scenario'] = scenario
-						StressTest.ajaxHandler(request);
+						StressTest.socketHandler(request);
 						break;
 					case 'Test':
 					default:
@@ -167,7 +230,7 @@ var StressTest = {
 
 				StressTest.scenario.calls_sent++;
 				if (StressTest.scenario.calls_sent < num_users && StressTest.scenario.stop_test != true) {
-					start();           
+					start();  // continues looping requests           
 				}
 				else { 
 					StressTest.scenario.requests_complete = true;
@@ -187,12 +250,13 @@ var StressTest = {
 			data:  []
 		}
 
-		// determine total calls before scenario loop:
+		// Determines total calls before scenario loop:
 		StressTest.calculateTotalCalls(num_users, scenario);
 
-		start();
+		start();  // starts request loop
 
 	},
+
 
 
 	socketHandler: function (request) {
@@ -202,10 +266,10 @@ var StressTest = {
 		var port = StressTest.config.test_port;
 
 		if (typeof port === 'number') {
-			socket = io.connect(host, {'port': port, 'force new connection': true});
+			socket = socketio.connect('http://' + host + ':' + port, {'force new connection': true});
 		}
 		else {
-			socket = io.connect(host, {'force new connection': true});
+			socket = socketio.connect(host, {'force new connection': true});
 		}
 
 		socket.emit('get_data', JSON.stringify(request));
@@ -234,6 +298,8 @@ var StressTest = {
 			console.log("socket error event triggered!");
 		});
 	},
+
+
 
 	ajaxHandler: function(request) {
 		$.ajax({
@@ -264,6 +330,8 @@ var StressTest = {
 		});
 	},
 
+
+
 	trackProgress: function (data_obj) {
 		var start_time = data_obj['request_post']['start_time'];
 		var stop_time = Date.now();
@@ -271,10 +339,6 @@ var StressTest = {
 		// var latency = stop_time - start_time;  // diff in ms
 		var latency = (stop_time - start_time) / 1000;  // diff in s
 
-		// var d3_data_obj = StressTest.result_obj;
-		// d3_data_obj.latency = (stop_time - start_time) / 1000;  // diff in s
-		// d3_data_obj.sessionid = data_obj['request_post']['sessionid'];
-		// d3_data_obj.calc = data_obj['request_post']['calc'];
 		var d3_data_obj = {
 			latency: latency,
 			sessionid: data_obj['request_post']['sessionid'],
@@ -287,44 +351,34 @@ var StressTest = {
 			alert("latency value " + d3_data_obj.latency + " is NaN..");
 		}
 		else {
-			// StressTest.scenario.data.push(latency);
 			StressTest.scenario.data.push(d3_data_obj);
 		}
 
 		console.log("latency: " + d3_data_obj.latency);
 		console.log("received: " + StressTest.scenario.calls_received + " out of " + StressTest.scenario.total_calls);
 
-		// if (StressTest.scenario.calls_received == StressTest.scenario.calls_sent && StressTest.scenario.requests_complete) {
 		if (StressTest.scenario.calls_received == StressTest.scenario.total_calls && StressTest.scenario.requests_complete) {
 			StressTest.blockInterface(false);
 			StressResults.init(StressTest.scenario.data);
-		} 
+		}
+
 	},
+
+
 
 	calculateTotalCalls: function (num_users, scenario) {
 		
 		switch(scenario) {
 
 			case 'P-chem Requests':
-				// each user requesting multiple props/calcs:
-				for (var i = 0; i < StressTest.selected_calcs.length; i++) {
-					var calc = StressTest.selected_calcs[i];
-					if (calc == "chemaxon" || calc == "sparc") {
-						StressTest.scenario.total_calls += num_users * 8;
-					}
-					else if (calc == "epi" ) {
-						StressTest.scenario.total_calls += num_users * 7;
-					}
-					else if (calc == "test") {
-						StressTest.scenario.total_calls += num_users * 4;
-					}
-					else if (calc == "measured") {
-						StressTest.scenario.total_calls += num_users * 6;
-					}
-				}
-				console.log(StressTest.scenario.total_calls);
+				StressTest.calculateNumberOfPchemRequests(num_users, 1);
 				break;
 
+			case 'P-chem Requests (batch)':
+				StressTest.calculateNumberOfPchemRequests(num_users, StressTest.batch_data.length);
+				break;
+
+			// Below cases all use the default case
 			case 'Transformation Requests':
 			case 'Chemical Info':
 			case 'Test':
@@ -336,19 +390,52 @@ var StressTest = {
 
 	},
 
-	updateProgressBar: function() {
-	    // var progress = 100 * (1 - (calls_tracker / total_calls));
-	    var progress = 100 * (StressTest.scenario.calls_received / StressTest.scenario.total_calls);
-	    $('#progressbar').progressbar({
-	        value: progress
-	    });  
+
+
+	calculateNumberOfPchemRequests: function(num_users, num_chems=1) {
+		// each user requesting multiple props/calcs:
+		for (var i = 0; i < StressTest.selected_calcs.length; i++) {
+			var calc = StressTest.selected_calcs[i];
+			if (calc == "chemaxon") {
+				StressTest.scenario.total_calls += 9;
+			}
+			else if (calc == "sparc") {
+				StressTest.scenario.total_calls += 9;	
+			}
+			else if (calc == "epi" ) {
+				StressTest.scenario.total_calls += 12;
+			}
+			else if (calc == "test") {
+				StressTest.scenario.total_calls += 16;
+			}
+			else if (calc == "measured") {
+				StressTest.scenario.total_calls += 6;
+			}
+		}
+
+		StressTest.scenario.total_calls *= num_users;  // accounts for num of users
+		StressTest.scenario.total_calls *= num_chems;  // accounts for num of chemicals (e.g., batch mode)
+
+		console.log(StressTest.scenario.total_calls);
+		return;
 	},
+
+
+
+	updateProgressBar: function() {
+	    var progress = 100 * (StressTest.scenario.calls_received / StressTest.scenario.total_calls);
+	    $('#progressbar').html("<h3>" + parseInt(progress) + "%</h3>");
+	},
+
+
 
 	cancelRequest: function() {
 	    console.log("canceling request");
-	    // socket.emit('get_data', JSON.stringify({'cancel': true, 'pchem_request': null}));
+	    socket.emit('get_data', JSON.stringify({'cancel': true, 'pchem_request': null}));
 	    StressTest.blockInterface(false);
 	},
+
+
 
 	blockInterface: function(block) {
 	    if (block) {
@@ -365,11 +452,30 @@ var StressTest = {
 	                "-webkit-box-shadow": "3px 3px 15px #333",
 	                "-moz-box-shadow": "3px 3px 15px #333"
 	            },
-	            message: '<div id="pchem_wait"><h3 class="popup_header">Retrieving data...</h2><br><img src="/images/loader.gif" style="margin-top:-16px" id="load_wheel"><br><br><div id="progressbar"></div><br><input onclick="StressTest.cancelRequest()" type="button" value="Cancel" id="btn-pchem-cancel"><br></div>',
+	            message: '<div id="pchem_wait"><h3 class="popup_header">Retrieving data...</h3><br><div id="progressbar"><h3>0%</h3></div><br><input onclick="StressTest.cancelRequest()" type="button" value="Cancel" id="btn-pchem-cancel"><br></div>',
 	            fadeIn: 500
 	        });
 	    }
 	    else { $.unblockUI(); }
+	},
+
+
+
+	readBatchInputFile: function(file_content) {
+
+		var batchData = [];
+		var batchChems = file_content.replace(/\n/g, ",").split(",");  // chemicals in array
+
+		// Adds data to batch chems:
+		for (var chemInd in batchChems) {
+			var chemObj = {};
+			chemObj['smiles'] = batchChems[chemInd];
+			chemObj['mass'] = 0.0;
+			batchData.push(chemObj);
+		}
+
+		return batchData;
+
 	}
 
 };
@@ -379,9 +485,14 @@ var StressTest = {
 
 
 
+
+/****************************
+Stress Test Results Module
+****************************/
 var StressResults = {
 
 	init: function (data) {
+
 		StressResults.data = data;
 		StressResults.dyn_width = $('div#scatter-chart').width();
 		StressResults.margin = {top: 30, right: 15, bottom: 60, left: 60};
@@ -397,16 +508,12 @@ var StressResults = {
 		// d3ize data (array --> array of xypairs)
 		StressResults.scatter_data = [];
 		for (var j = 0; j < StressTest.scenario.data.length; j++) {
-			// var xypair = [j + 1, StressResults.data[j]];
-			// StressResults.scatter_data.push(xypair);
-			// StressTest.scenario.data[j]['x'] = j + 1;
 			var scatter_datum = StressTest.scenario.data[j];
 			scatter_datum['x'] = j + 1;
 			StressResults.scatter_data.push(scatter_datum);
 		}
 
 		StressResults.plotScatterChart();
-		// StressResults.plotHistoChart(StressResults.data);
 		StressResults.computeStats();
 
 	},
@@ -433,21 +540,12 @@ var StressResults = {
 		$('div#max-lat').html('<b>Max Latency (s): </b>' + stats.max);
 		$('div#min-lat').html('<b>Min Latency (s): </b>' + stats.min);
 
-		$('div#color-codes').html('<p style="color:#c82300;"><b>ChemAxon</b></p><p style="color:#ffaf00;"><b>EPI</b></p><p style="color:#ffff7f;"><b>TEST</b></p><p style="color:#73b432;"><b>SPARC</b></p><p style="color:#005be0;"><b>Measured</b></p>');
+		$('div#color-codes').html('<p style="color:#c82300;"><b>ChemAxon</b></p><p style="color:#ffaf00;"><b>EPI</b></p><p style="color:#73b432;"><b>TEST</b></p><p style="color:#005be0;"><b>SPARC</b></p><p style="color:#8e44ad;"><b>Measured</b></p>');
 		
-
-		// $('#color-codes').removeClass('hidden');
 	},
 
 	plotScatterChart: function () {
 
-		// var x = d3.scaleLinear()
-		// 	  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d[0]; })])
-		// 	  .range([ 0, StressResults.width ]);
-
-		// var y = d3.scaleLinear()
-		// 		  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d[1]; })])
-		// 		  .range([ StressResults.height, 0 ]);
 		var x = d3.scaleLinear()
 			  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d.x; })])
 			  .range([ 0, StressResults.width ]);
@@ -485,24 +583,14 @@ var StressResults = {
 			.attr('class', 'main axis date')
 			.call(yAxis);
 
-		// var valueline = d3.line()
-		//     .x(function(d) { return x(d[0]); })
-		//     .y(function(d) { return y(d[1]); });
-
-		// main.append('path')
-		// 	.attr('class', 'line')
-		// 	.attr('d', valueline(latency_data));
-
 		var g = main.append("svg:g"); 
 
 		g.selectAll("scatter-dots")
 		  .data(StressResults.scatter_data)
 		  .enter().append("svg:circle")
-			  // .attr("cx", function (d,i) { return x(d[0]); } )
-			  // .attr("cy", function (d) { return y(d[1]); } )
 			  .attr("cx", function (d,i) { return x(d.x); } )
 			  .attr("cy", function (d) { return y(d.latency); } )
-			  .attr("r", 8)
+			  .attr("r", 3)  // radius of dots for scatter plot
 			  .style("fill", function (d, i) {
 			  	// want to color code by calc here.
 			  	if (d.calc == "chemaxon") {
@@ -512,13 +600,13 @@ var StressResults = {
 			  		return "#ffaf00";
 			  	}
 			  	else if (d.calc == "test") {
-			  		return "#ffff7f";
-			  	}
-			  	else if (d.calc == "sparc") {
 			  		return "#73b432";
 			  	}
-			  	else if (d.calc == "measured") {
+			  	else if (d.calc == "sparc") {
 			  		return "#005be0";
+			  	}
+			  	else if (d.calc == "measured") {
+			  		return " #8e44ad";
 			  	}
 			  	else {
 			  		return "black";
@@ -537,79 +625,8 @@ var StressResults = {
             .text("User Requests");
 	},
 
-	// plotHistoChart: function (histo_data) {
-
-	// 	var max_val = d3.max(histo_data);
-	// 	var min_val = d3.min(histo_data);
-
-	// 	var formatCount = d3.format(",.0f");
-
-	// 	var histo_chart = d3.select('div.histo-content')
-	// 		.append('svg:svg')
-	// 		.attr('width', StressResults.width + StressResults.margin.right + StressResults.margin.left)
-	// 		.attr('height', StressResults.height + StressResults.margin.top + StressResults.margin.bottom)
-	// 		.attr('class', 'chart')
-	// 		.attr('id', 'histo-chart')
-
-	// 	var main = histo_chart.append('g')
-	// 		.attr("transform", "translate(" + StressResults.margin.left + "," + StressResults.margin.top + ")")
-	// 		.attr('width', StressResults.width)
-	// 		.attr('height', StressResults.height)
-	// 		.attr('class', 'main')
-
-	// 	var x = d3.scaleLinear()
-	// 	            .domain([min_val - 1, max_val + 1])
-	// 	            .range([0, StressResults.width]);
-
-	// 	var x_buff = Math.round((max_val - min_val) / 10);
-
-
-	// 	var bins = d3.histogram()
-	// 	            .domain([min_val - x_buff, max_val + x_buff])
-	// 	            // .thresholds(min_val + max_val + 2)  // use domain diff for ticks (hopefully forces bin size to 1)
-	// 	            .thresholds(x_buff)
-	// 	            (histo_data);
-
-
-
-	// 	var y = d3.scaleLinear()
-	// 	    .domain([0, d3.max(bins, function(d) { return d.length; })])
-	// 	    .range([StressResults.height, 0]);
-
-	// 	var bar = main.selectAll(".bar")
-	// 	  .data(bins)
-	// 	  .enter().append("g")
-	// 	    .attr("class", "bar")
-	// 	    .attr("transform", function(d) { return "translate(" + x(d.x0 - 0.25) + "," + y(d.length) + ")"; });
-
-	// 	bar.append("rect")
-	// 	    .attr("x", 1)
-	// 	    // .attr("width", x(bins[0].x1) - x(bins[0].x0) - 1)
-	// 	    .attr("width", x(bins[0].x1) - x(bins[0].x0))
-	// 	    .attr("height", function(d) { return StressResults.height - y(d.length); });
-
-	// 	bar.append("text")
-	// 	    .attr("dy", ".75em")
-	// 	    .attr("y", 6)
-	// 	    .attr("x", (x(bins[0].x1) - x(bins[0].x0)) / 2)
-	// 	    .attr("text-anchor", "middle")
-	// 	    .text(function(d) { 
-	// 	    	if (d.length > 0) {
-	// 	    		return formatCount(d.length);
-	// 	    	}
-	// 	    })
-
-	// 	main.append("g")
-	// 	    .attr("class", "axis axis--x")
-	// 	    .attr("transform", "translate(0," + StressResults.height + ")")
-	// 	    .call(d3.axisBottom(x));
-
-	// 	histo_chart.append("text")
-	// 		.attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
-	// 		.attr("transform", "translate("+ (StressResults.dyn_width/2) +","+(StressResults.height+StressResults.padding)+")")  // centre below axis
-	// 		.text("Latency (ms)");
-	// }
-
 };
 
-$(document).ready(StressTest.init);
+
+
+module.exports = StressTest;

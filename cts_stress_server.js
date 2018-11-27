@@ -1,22 +1,42 @@
 var path = require('path');
 var express = require('express');
 var http = require('http');
+var https = require('https');
 var bodyParser = require('body-parser');
 var querystring = require('querystring');
-var request = require('request');
+// var request = require('request');
 
 var config = require('./config');
 
+// Local requirements:
+// var ctsPdfGenerator = require('./generate_pdf');
+
 var app = express();
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname + '/public/css')));
+app.use(express.static(path.join(__dirname + '/dist')));
+app.use('/bootstrap/css', express.static(path.join(__dirname + '/node_modules/bootstrap/dist/css')));
+app.use('/images', express.static(path.join(__dirname + '/public/images')));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: true}));
 
 app.get('/', function (req, res) {
-  // res.send('Hello World!');
   res.sendFile(path.join(__dirname + '/public/html/cts_stress_page.html'));
 });
+
+// // Generates PDF from stress test results:
+// app.post('/downloads/pdf', function(request, response) {
+
+//     console.log("Incoming request");
+
+//     ctsPdfGenerator.init();
+
+//     console.log("Generating PDF");
+
+//     ctsPdfGenerator.generatePdf(response);
+
+// });
 
 app.post('/ajax', function(request, response){
 
@@ -26,7 +46,7 @@ app.post('/ajax', function(request, response){
 
 	var options = {
         host: config.cts.host,
-        port: config.cts.port,
+        // port: config.cts.port,
         path: null,
         method: 'POST',
         headers: {
@@ -50,7 +70,8 @@ app.post('/ajax', function(request, response){
     console.log("CTS Endpoint: " + options.path);
 
     // Send message to CTS server:
-    var req = http.request(options, function(res){
+    // var req = http.request(options, function(res){
+    var req = https.request(options, function(res){
         res.setEncoding('utf8');        
         var response_string = '';
         res.on('data', function(message){
@@ -69,6 +90,6 @@ app.post('/ajax', function(request, response){
 
 app.listen(config.server.port, function () {
   console.log('CTS_STRESS server running!');
-  console.log('Stress test page hosted at: http://' + config.server.host + ':' + config.server.port);
-  console.log('Test server located at http://' + config.cts.host + ':' + config.cts.port);
+  console.log('Stress test page hosted at: ' + config.server.host + ':' + config.server.port);
+  console.log('Test server located at ' + config.cts.host + ':' + config.cts.port);
 });
