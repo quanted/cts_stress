@@ -265,8 +265,9 @@ var StressTest = {
 		var host = StressTest.config.test_host;
 		var port = StressTest.config.test_port;
 
-		if (typeof port === 'number') {
-			socket = socketio.connect('http://' + host + ':' + port, {'force new connection': true});
+		if (typeof port === 'number' && !isNaN(port)) {
+			// added path for nginx
+			socket = socketio.connect('http://' + host + ':' + port, {'path': "/stresstest", 'force new connection': true});
 		}
 		else {
 			socket = socketio.connect(host, {'force new connection': true});
