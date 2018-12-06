@@ -25,20 +25,7 @@ app.get('/', function (req, res) {
   res.sendFile(path.join(__dirname + '/public/html/cts_stress_page.html'));
 });
 
-// // Generates PDF from stress test results:
-// app.post('/downloads/pdf', function(request, response) {
-
-//     console.log("Incoming request");
-
-//     ctsPdfGenerator.init();
-
-//     console.log("Generating PDF");
-
-//     ctsPdfGenerator.generatePdf(response);
-
-// });
-
-app.post('/ajax', function(request, response){
+app.post('/ajax', function(request, response) {
 
 	var values = querystring.stringify({
         message: JSON.stringify(request.body)

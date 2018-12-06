@@ -14,19 +14,6 @@ Generates PDF
 ****************************/
 var PdfGenerator = {
 
-	// default_request: {
-	// 	'chemical': 'CCC',
-	// 	'pchem_request': {'chemaxon': ['water_sol']},
-	// 	'calc': 'chemaxon'
-	// },
-
-	// result_obj: {
-	// 	x: null,
-	// 	latency: null,
-	// 	sessionid: null,
-	// 	calc: null
-	// },
-
 	options: {
 		format: 'Letter'
 	},
@@ -55,69 +42,36 @@ var PdfGenerator = {
 
 	generatePdf: function (res) {
 
-		var pdfHtml = "";
-
-		// jsPDF method
-  		// var pdfHtml = $('.container').prop('outerHTML');
   		var pdfHtmlObj = $('.container')[0];
+  		$(pdfHtmlObj).find('.no-download').remove();  // removes any element not meant for file downloads
 
-  		var origPageHtmlObj = $(pdfHtmlObj).clone();  // for restoring original page after pdf creation
-
-  		// var pdf = new jsPDF('p', 'pt', 'letter');
-		// var options = {
-		// 	pagesplit: true,
-		// 	orientation: 'portrait',
-		// 	unit: 'in',
-		// 	format: 'letter'
-		// };
-
-
-		// $(pdfHtmlObj).find(':first').remove();
-		// $(pdfHtmlObj).prepend('<h2>CTS Stress Test Results</h2>');
-
-
-		pdfHtml += '<h1>CTS Stress Test Results</h1>';
-		pdfHtml += PdfGenerator.getUserInputs();
-
-		// pdf.addHTML(pdfHtmlObj, 0, 0, options, function(){
-		//     pdf.save("test.pdf");
-		// });
-		// pdf.fromHTML(pdfHtml, 0, 0, options, function(){
-		//     pdf.save("test.pdf");
-		// });
-
-
-
-		// jsPDF method 2 (this works relatively well):
 		html2canvas(pdfHtmlObj, {
 			onrendered: function(canvas) {
 				const contentDataUrl = canvas.toDataURL('image/png');
 				let pdf = new jsPDF('p', 'mm', [canvas.width, canvas.height]);
+				let filename = PdfGenerator.createFilename();
 				pdf.addImage(contentDataUrl, 'JPEG', 20, 20);
-				pdf.save('test.pdf');
-
+				pdf.save(filename);
 			}
 		});
-
 
 	},
 
 
 
-	getUserInputs: function () {
-		var pdfInputNames = $('.pdf-input-name');
-		var pdfInputVals = $('.pdf-input-val');
-		var html = "";
+	createFilename: function () {
+		var filename = "cts_stress_results_";
+		filename += PdfGenerator.generateTimestamp();
+		return filename	
+	},
 
-		for(var i = 0; i < pdfInputNames.length; i++) {
-			// builds html for pdf:
-			var pdfName = $(pdfInputNames[i])[0];
-			var pdfVal = $(pdfInputVals[i])[0];
-			html += '<p>' + $(pdfName).children('b').text() + " " + $(pdfVal).children('input').val() + '</p>';
-		}
 
-		return html;
-	}
+
+	generateTimestamp: function () {
+		var timestamp = new Date(Date.now()).toString();
+		timestamp = timestamp.replace(/\s/g, '');  // removes all spaces in timestamp
+		return timestamp
+	},
 
 };
 

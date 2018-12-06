@@ -7,6 +7,8 @@ var eventemitter2 = require('eventemitter2');
 var socketio = require('socket.io-client');
 var d3 = require('d3');
 
+var ctsStressResults = require('./cts_stress_test_results');
+
 
 
 /****************************
@@ -95,7 +97,10 @@ var StressTest = {
 
 			StressTest.blockInterface(true);
 
-			$('svg.chart').remove();  // clear charts from page
+			// Removes any existing chart for redrawing:
+			$('#scatter-chart').children('svg').remove();
+
+
 			$('.stats').html('');  // clear stat divs
 			// $('div#color-codes').hide();
 			$('div#color-codes').html('');
@@ -157,12 +162,6 @@ var StressTest = {
 			}
 
 		});
-
-		$('#download-pdf-button').on('click', function() {
-			// Submit PDF POST form
-			$('form.post_form').submit();
-		});
-
 
 	},
 
@@ -267,7 +266,7 @@ var StressTest = {
 
 		if (typeof port === 'number' && !isNaN(port)) {
 			// added path for nginx
-			socket = socketio.connect('http://' + host + ':' + port, {'path': "/stresstest", 'force new connection': true});
+			socket = socketio.connect('http://' + host + ':' + port, {'force new connection': true});
 		}
 		else {
 			socket = socketio.connect(host, {'force new connection': true});
@@ -360,7 +359,16 @@ var StressTest = {
 
 		if (StressTest.scenario.calls_received == StressTest.scenario.total_calls && StressTest.scenario.requests_complete) {
 			StressTest.blockInterface(false);
-			StressResults.init(StressTest.scenario.data);
+
+
+			
+			// StressResults.init(StressTest.scenario.data);
+			ctsStressResults.init(StressTest.scenario.data);
+
+			// Call new D3 file for panning/zooming and rescaling axes:
+
+
+
 		}
 
 	},
@@ -478,153 +486,6 @@ var StressTest = {
 		return batchData;
 
 	}
-
-};
-
-
-
-
-
-
-
-/****************************
-Stress Test Results Module
-****************************/
-var StressResults = {
-
-	init: function (data) {
-
-		StressResults.data = data;
-		StressResults.dyn_width = $('div#scatter-chart').width();
-		StressResults.margin = {top: 30, right: 15, bottom: 60, left: 60};
-		StressResults.width = StressResults.dyn_width - StressResults.margin.left - StressResults.margin.right;
-		StressResults.height = 500 - StressResults.margin.top - StressResults.margin.bottom;
-		StressResults.padding = 64;
-
-		StressResults.setup();
-
-	},
-
-	setup: function () {
-		// d3ize data (array --> array of xypairs)
-		StressResults.scatter_data = [];
-		for (var j = 0; j < StressTest.scenario.data.length; j++) {
-			var scatter_datum = StressTest.scenario.data[j];
-			scatter_datum['x'] = j + 1;
-			StressResults.scatter_data.push(scatter_datum);
-		}
-
-		StressResults.plotScatterChart();
-		StressResults.computeStats();
-
-	},
-
-	computeStats: function() {
-		// min, max, and avg latency
-		var sum = 0;
-		var max_lat = 0;
-		var min_lat = StressResults.data[0]['latency'];
-		for (var i = 0; i < StressResults.data.length; i++) {
-			var val = StressResults.data[i]['latency'];
-			sum += val;  // for avg
-			if (val > max_lat) { max_lat = val; }
-			if (val < min_lat) { min_lat = val; }
-		}
-		var avg_lat = sum / StressResults.data.length;
-		var stats = {
-			min: min_lat.toFixed(2),
-			max: max_lat.toFixed(2),
-			avg: avg_lat.toFixed(2)
-		};
-		// return result_obj;
-		$('div#avg-lat').html('<b>Average Latency (s): </b>' + stats.avg);
-		$('div#max-lat').html('<b>Max Latency (s): </b>' + stats.max);
-		$('div#min-lat').html('<b>Min Latency (s): </b>' + stats.min);
-
-		$('div#color-codes').html('<p style="color:#c82300;"><b>ChemAxon</b></p><p style="color:#ffaf00;"><b>EPI</b></p><p style="color:#73b432;"><b>TEST</b></p><p style="color:#005be0;"><b>SPARC</b></p><p style="color:#8e44ad;"><b>Measured</b></p>');
-		
-	},
-
-	plotScatterChart: function () {
-
-		var x = d3.scaleLinear()
-			  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d.x; })])
-			  .range([ 0, StressResults.width ]);
-
-		var y = d3.scaleLinear()
-				  .domain([0, d3.max(StressResults.scatter_data, function(d) { return d.latency; })])
-				  .range([ StressResults.height, 0 ]);
-
-		// appends chart to body of page:
-		// var scatter_chart = d3.select('body')
-		var scatter_chart = d3.select('div.content')
-			.append('svg:svg')
-			.attr('width', StressResults.width + StressResults.margin.right + StressResults.margin.left)
-			.attr('height', StressResults.height + StressResults.margin.top + StressResults.margin.bottom)
-			.attr('class', 'chart')
-			.attr('id', 'scatter-chart')
-
-		var main = scatter_chart.append('g')
-			.attr('transform', 'translate(' + StressResults.margin.left + ',' + StressResults.margin.top + ')')
-			.attr('width', StressResults.width)
-			.attr('height', StressResults.height)
-			.attr('class', 'main')   
-			
-		var xAxis = d3.axisBottom(x);
-
-		main.append('g')
-			.attr('transform', 'translate(0,' + StressResults.height + ')')
-			.attr('class', 'main axis date')
-			.call(xAxis);
-
-		var yAxis = d3.axisLeft(y);
-
-		main.append('g')
-			.attr('transform', 'translate(0,0)')
-			.attr('class', 'main axis date')
-			.call(yAxis);
-
-		var g = main.append("svg:g"); 
-
-		g.selectAll("scatter-dots")
-		  .data(StressResults.scatter_data)
-		  .enter().append("svg:circle")
-			  .attr("cx", function (d,i) { return x(d.x); } )
-			  .attr("cy", function (d) { return y(d.latency); } )
-			  .attr("r", 3)  // radius of dots for scatter plot
-			  .style("fill", function (d, i) {
-			  	// want to color code by calc here.
-			  	if (d.calc == "chemaxon") {
-			  		return "#c82300";
-			  	}
-			  	else if (d.calc == "epi") {
-			  		return "#ffaf00";
-			  	}
-			  	else if (d.calc == "test") {
-			  		return "#73b432";
-			  	}
-			  	else if (d.calc == "sparc") {
-			  		return "#005be0";
-			  	}
-			  	else if (d.calc == "measured") {
-			  		return " #8e44ad";
-			  	}
-			  	else {
-			  		return "black";
-			  	}
-			  });
-
-		// now add titles to the axes
-        scatter_chart.append("text")
-            .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
-            .attr("transform", "translate("+ (StressResults.padding/4) +","+(StressResults.height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
-            .text("Latency (s)");
-
-        scatter_chart.append("text")
-            .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
-            .attr("transform", "translate("+ (StressResults.dyn_width/2) +","+(StressResults.height + StressResults.padding)+")")  // centre below axis
-            .text("User Requests");
-	},
 
 };
 

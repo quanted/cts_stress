@@ -7,14 +7,19 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "browserify public/js/main.js -o dist/bundle.js",
+    "cts-build": "browserify public/js/main.js -o ../static_qed/cts/js/cts_stress_bundle.js",
+    "cts-dev": "watchify public/js/main.js -o ../static_qed/cts/js/cts_stress_bundle.js",
     "serve": "node cts_stress_server.js",
-    "deploy": "npm run build && npm run serve"
+    "deploy": "npm run build && npm run serve",
+    "dev": "watchify public/js/main.js -o dist/bundle.js"
   },
   "dependencies": {
     "block-ui": "^2.70.1",
     "body-parser": "^1.15.2",
     "bootstrap": "^4.0.0",
-    "d3": "^5.7.0",
+    "d3": "3.5.17",
+    "d3-selection": "1.3.2",
+    "d3-zoom": "1.7.3",
     "eventemitter2": "^5.0.1",
     "express": "^4.16.2",
     "jquery": "^3.3.1",
@@ -27,6 +32,7 @@
     "socket.io": "^2.0.4"
   },
   "devDependencies": {
-    "browserify": "^16.1.1"
+    "browserify": "^16.1.1",
+    "watchify": "^3.11.0"
   }
 }
