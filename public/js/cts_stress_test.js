@@ -144,7 +144,7 @@ var StressTest = {
 			}
 		});
 
-		// Do this stuff once file is uploaded:
+		// Do this stuff once file is uploaded (for batch mode testing):
 		$('#upfile1').change(function () {
 
 			var file = this.files[0];
@@ -154,6 +154,31 @@ var StressTest = {
 				var reader = new FileReader();
 				reader.onload = function (e) {
 					StressTest.batch_data = StressTest.readBatchInputFile(reader.result);
+				}
+				reader.readAsText(file);
+			}
+			else {
+				$('#fileDisplayArea').html("File not supported!");
+			}
+
+		});
+
+		// Upload button for viewing stress results:
+		$('#upload-results-button').change(function () {
+
+			var file = this.files[0];
+			// var textType = /text.*/;
+			var textType = "application/json";
+
+			if (file.type.match(textType)) {
+				var reader = new FileReader();
+				reader.onload = function (e) {
+					// StressTest.batch_data = StressTest.readBatchInputFile(reader.result);
+
+					// Loads data into cts_stress_test_result.js module for plotting:
+					var stressData = JSON.parse(reader.result);
+					ctsStressResults.init(stressData);
+
 				}
 				reader.readAsText(file);
 			}
@@ -334,6 +359,11 @@ var StressTest = {
 
 	trackProgress: function (data_obj) {
 		var start_time = data_obj['request_post']['start_time'];
+
+		if (!(start_time)) {
+			start_time = data_obj['start_time'];			
+		}
+
 		var stop_time = Date.now();
 
 		// var latency = stop_time - start_time;  // diff in ms
