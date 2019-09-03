@@ -37,7 +37,7 @@
 			<div class="row">
 				<div class="col-md-6"><b>User Scenarios:</b></div>
 				<div class="col-md-6">
-					<select class="selectpicker">
+					<select id="scenario-dropdown" class="selectpicker">
 						<option>Test</option>
 						<option>Chemical Info</option>
 						<option>P-chem Requests</option>
@@ -46,6 +46,17 @@
 						<option disabled>Speciation Workflow</option>
 						<option disabled>P-chem Workflow</option>
 						<option disabled>Transformation Workflow</option>
+					</select>
+				</div>
+			</div>
+			<br>
+			<br>
+			<div class="row" id="protocol-row" style="display:none;">
+				<div class="col-md-6"><b>Select protocol to test:</b></div>
+				<div class="col-md-6">
+					<select id="protocol-dropdown" class="selectpicker">
+						<option>Websocket</option>
+						<option>HTTP</option>
 					</select>
 				</div>
 			</div>

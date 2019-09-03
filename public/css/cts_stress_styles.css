@@ -1,4 +1,8 @@
 .chart {}
+#scatter-chart {
+  height: 100%;
+  width: 100%;
+}
 .main text {
 	font: 10px sans-serif;	
 }

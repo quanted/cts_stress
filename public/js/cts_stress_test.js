@@ -115,12 +115,13 @@ var StressTest = {
 			var num_users = $('#num-users').val();
 			var user_rate = $('#user-rate').val();
 			var delay = Math.round(1000 / user_rate);  // delay in ms
-			var user_scenario = $('.selectpicker').children(':selected').text();
+			var user_scenario = $('#scenario-dropdown').children(':selected').text();
+			var protocol = $('#protocol-dropdown').children(':selected').text();
 
 			// populate selected_calcs array from calc buttons:
 			$('.calc-options .active').each(function() {StressTest.selected_calcs.push($(this).html())});
 
-			StressTest.runScenario(num_users, delay, user_scenario);
+			StressTest.runScenario(num_users, delay, user_scenario, protocol);
 
 		});
 
@@ -128,19 +129,27 @@ var StressTest = {
 			stop_test = true;
 		});
 
-		$('.selectpicker').change(function () {
+		$('#scenario-dropdown').change(function () {
 			var selected_scenario = $(this).children(':selected').text();
 			if (selected_scenario == 'P-chem Requests') {
 				$('.calc-options').show();
 				$('#batch-upload-div').hide();
+				$('#protocol-row').show();
 			}
 			else if (selected_scenario == 'P-chem Requests (batch)') {
 				$('#batch-upload-div').show();
-				$('.calc-options').show();	
+				$('.calc-options').show();
+				$('#protocol-row').hide();
+			}
+			else if (selected_scenario == 'Transformation Requests') {
+				$('#batch-upload-div').hide();
+				$('.calc-options').hide();
+				$('#protocol-row').show();
 			}
 			else {
 				$('#batch-upload-div').hide();
 				$('.calc-options').hide();
+				$('#protocol-row').hide();
 			}
 		});
 
@@ -192,7 +201,7 @@ var StressTest = {
 
 
 
-	runScenario: function(num_users, delay, scenario) {
+	runScenario: function(num_users, delay, scenario, protocol) {
 
 		function start() {
 
@@ -217,7 +226,12 @@ var StressTest = {
 							request['pchem_request'][calc] = StressTest.available_props[calc];
 						}
 						request['start_time'] = Date.now();
-						StressTest.socketHandler(request);
+						if (protocol == 'HTTP') {
+							StressTest.ajaxHandler(request);
+						}
+						else {
+							StressTest.socketHandler(request);  // defaults to websocket protocol
+						}
 						break;
 
 					case 'P-chem Requests (batch)':

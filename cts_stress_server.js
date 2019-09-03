@@ -33,7 +33,7 @@ app.post('/ajax', function(request, response) {
 
 	var options = {
         host: config.cts.host,
-        // port: config.cts.port,
+        port: config.cts.port,
         path: null,
         method: 'POST',
         headers: {
@@ -57,8 +57,8 @@ app.post('/ajax', function(request, response) {
     console.log("CTS Endpoint: " + options.path);
 
     // Send message to CTS server:
-    // var req = http.request(options, function(res){
-    var req = https.request(options, function(res){
+    var req = http.request(options, function(res){
+    // var req = https.request(options, function(res){
         res.setEncoding('utf8');        
         var response_string = '';
         res.on('data', function(message){
