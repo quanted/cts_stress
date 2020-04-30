@@ -23,7 +23,7 @@
     "d3-zoom": "^1.7.3",
     "eventemitter2": "^5.0.1",
     "express": "^4.17.1",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "jspdf": "^1.5.3",
     "ngx-export-as": "^0.0.7-alfa",
     "path": "^0.12.7",
